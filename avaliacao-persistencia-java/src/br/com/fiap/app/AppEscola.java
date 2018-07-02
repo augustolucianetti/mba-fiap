@@ -139,21 +139,27 @@ public class AppEscola {
 
 		Curso curso = (Curso) JOptionPane.showInputDialog(null, "Selecione o curso", "Escolas",
 				JOptionPane.INFORMATION_MESSAGE, null, helper.listarCursos(escola.getId()).toArray(), null);
+		
+		if (curso != null) {
+			Aluno aluno = new Aluno();
+			aluno.setNome(JOptionPane.showInputDialog("Digite o nome do aluno"));
+			String alunoAdicionado = helper.adicionarAluno(aluno);
+			if (alunoAdicionado != null && !alunoAdicionado.isEmpty()) {
 
-		Aluno aluno = new Aluno();
-		aluno.setNome(JOptionPane.showInputDialog("Digite o nome do aluno"));
-		String alunoAdicionado = helper.adicionarAluno(aluno);
-		if (alunoAdicionado != null && !alunoAdicionado.isEmpty()) {
+				List<Aluno> alunos = helper.listarAlunos();
 
-			List<Aluno> alunos = helper.listarAlunos();
+				Aluno alunoSelecionado = alunos.get(alunos.size()-1);
 
-			Aluno alunoSelecionado = alunos.get(alunos.size()-1);
+				ApplicationContext context = new ClassPathXmlApplicationContext("beanJdbc.xml");
+				CursoAlunoDao dao = (CursoAlunoDao) context.getBean("jdbcCursoDao");
 
-			ApplicationContext context = new ClassPathXmlApplicationContext("beanJdbc.xml");
-			CursoAlunoDao dao = (CursoAlunoDao) context.getBean("jdbcCursoDao");
-
-			JOptionPane.showMessageDialog(null, dao.adicionarCursoParaAluno(alunoSelecionado.getRm(), curso.getId()));
+				JOptionPane.showMessageDialog(null, dao.adicionarCursoParaAluno(alunoSelecionado.getRm(), curso.getId()));
+			}
+		} else {
+			JOptionPane.showMessageDialog(null, "Esta escola nào possui cursos, adicione um curso para poder adicionar um aluno");
+			adicionarAluno();
 		}
+
 
 	}
 
@@ -176,24 +182,37 @@ public class AppEscola {
 
 		Curso curso = (Curso) JOptionPane.showInputDialog(null, "Selecione o curso", "Curso",
 				JOptionPane.INFORMATION_MESSAGE, null, helper.listarCursos(escola.getId()).toArray(), null);
-		
-		List<CursoAlunoViewModel> alunosIds = dao.buscarAlunosDeUmCurso(curso.getId());
-		
-		List<Aluno> alunos = new ArrayList<>();
-		for(CursoAlunoViewModel cursoAluno : alunosIds)  {
-			Aluno alunoCorrente = helper.buscarAlunoPorId(cursoAluno.getAluno());
-			alunos.add(alunoCorrente);
+		List<CursoAlunoViewModel> alunosIds = null;
+		if (curso != null) {
+			alunosIds = dao.buscarAlunosDeUmCurso(curso.getId());
+			
+			if (alunosIds != null  && !alunosIds.isEmpty()) {
+				List<Aluno> alunos = new ArrayList<>();
+				for(CursoAlunoViewModel cursoAluno : alunosIds)  {
+					Aluno alunoCorrente = helper.buscarAlunoPorId(cursoAluno.getAluno());
+					alunos.add(alunoCorrente);
+				}
+				
+				Aluno aluno = (Aluno) JOptionPane.showInputDialog(null, "Selecione o aluno que deseja adicionar a nota", "Alunos",
+						JOptionPane.INFORMATION_MESSAGE, null, alunos.toArray(), null);
+
+				try {
+					JOptionPane.showMessageDialog(null, dao.adicionarNotaParaAlunoDeUmCurso(curso.getId(), aluno.getRm(), nota));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+			} else {
+				JOptionPane.showMessageDialog(null, "Este curso nào possui alunos, adicione um aluno para poder adicionar uma nota");
+			}
+		} else {
+			JOptionPane.showMessageDialog(null, "Esta escola nào possui cursos, adicione um curso para poder adicionar um aluno");
+			adicionarNota();
 		}
 		
-		Aluno aluno = (Aluno) JOptionPane.showInputDialog(null, "Selecione o aluno que deseja adicionar a nota", "Alunos",
-				JOptionPane.INFORMATION_MESSAGE, null, alunos.toArray(), null);
-
-		try {
-			JOptionPane.showMessageDialog(null, dao.adicionarNotaParaAlunoDeUmCurso(curso.getId(), aluno.getRm(), nota));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
+		
+		
+		
 	}
 
 }
