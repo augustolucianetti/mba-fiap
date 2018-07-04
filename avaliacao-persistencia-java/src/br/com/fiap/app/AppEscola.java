@@ -25,8 +25,8 @@ public class AppEscola {
 		Integer optionInteger = null;
 		do  {
 			String option = JOptionPane.showInputDialog("Digite: \n 1 para incluir escola \n 2 para "
-					+ "listar escolas \n 3 para incluir curso \n 4 para listar cursos de uma escola "
-					+ "\n 5 para adicionar aluno em um curso \n 6 para dar uma nota para o aluno em um eterminado curso \n 9 para sair");
+					+ "listar escolas \n 3 para incluir curso \n 4 para listar cursos de uma escola \n 5 para adicionar um novo aluno"
+					+ "\n 6 para listar os alunos de um curso \n 7 para adicionar aluno em um curso \n 8 para dar uma nota para o aluno em um eterminado curso \n 9 para sair");
 			try {
 				optionInteger = Integer.parseInt(option);
 			} catch (NumberFormatException e) {
@@ -50,12 +50,19 @@ public class AppEscola {
 				case 4:
 					listarCursos();
 					break;
-
 				case 5:
 					adicionarAluno();
 					break;
-				
+					
 				case 6:
+					listarAlunosDeUmCurso();
+					break;
+
+				case 7:
+					adicionarAlunoEmUmCurso();
+					break;
+
+				case 8:
 					adicionarNota();
 					break;
 
@@ -127,7 +134,62 @@ public class AppEscola {
 
 	}
 
-	private static void adicionarAluno() throws Exception {
+	private static void adicionarAluno() {
+		EntityManagerFactory emf = Persistence.createEntityManagerFactory("avaliacao");
+		EntityManager em = emf.createEntityManager();
+
+		EscolaHelper helper = new EscolaHelper(em);
+
+		Aluno aluno = new Aluno();
+		aluno.setNome(JOptionPane.showInputDialog("Digite o nome do aluno"));
+		if(aluno.getNome() != null && !aluno.getNome().isEmpty()) {
+			String alunoAdicionado = helper.adicionarAluno(aluno);
+			JOptionPane.showMessageDialog(null, alunoAdicionado);
+		} else {
+			JOptionPane.showMessageDialog(null, "O nome do aluno não pode estar em branco");
+			adicionarAluno();
+		}
+
+
+	}
+	
+	private static void listarAlunosDeUmCurso() {
+		
+		ApplicationContext context = new ClassPathXmlApplicationContext("beanJdbc.xml");
+		CursoAlunoDao dao = (CursoAlunoDao) context.getBean("jdbcCursoDao");
+
+		EntityManagerFactory emf = Persistence.createEntityManagerFactory("avaliacao");
+		EntityManager em = emf.createEntityManager();
+
+		EscolaHelper helper = new EscolaHelper(em);
+
+
+		Escola escola = (Escola) JOptionPane.showInputDialog(null, "Selecione a escola", "Escolas",
+				JOptionPane.INFORMATION_MESSAGE, null, helper.listarEscolas().toArray(), null);
+
+
+		Curso curso = (Curso) JOptionPane.showInputDialog(null, "Selecione o curso", "Curso",
+				JOptionPane.INFORMATION_MESSAGE, null, helper.listarCursos(escola.getId()).toArray(), null);
+		List<CursoAlunoViewModel> alunosIds = null;
+		if (curso != null) {
+			
+			List<CursoAlunoViewModel> cursoAlunos = dao.buscarAlunosDeUmCurso(curso.getId());
+			List<Aluno> alunos = new ArrayList<>();
+			for(CursoAlunoViewModel cursoAluno : cursoAlunos)  {
+				Aluno alunoCorrente = helper.buscarAlunoPorId(cursoAluno.getAluno());
+				alunos.add(alunoCorrente);
+			}
+			if (alunos.size() > 0) {
+				JOptionPane.showInputDialog(null, "Alunos dk curso " + curso.getDescricao(), "Alunos",
+						JOptionPane.INFORMATION_MESSAGE, null, alunos.toArray(), null);
+			} else {
+				JOptionPane.showMessageDialog(null, "O curso não possui alunos");
+			}
+		} 
+
+	}
+
+	private static void adicionarAlunoEmUmCurso() throws Exception {
 
 		EntityManagerFactory emf = Persistence.createEntityManagerFactory("avaliacao");
 		EntityManager em = emf.createEntityManager();
@@ -137,27 +199,39 @@ public class AppEscola {
 		Escola escola = (Escola) JOptionPane.showInputDialog(null, "Selecione a escola", "Escolas",
 				JOptionPane.INFORMATION_MESSAGE, null, helper.listarEscolas().toArray(), null);
 
-		Curso curso = (Curso) JOptionPane.showInputDialog(null, "Selecione o curso", "Escolas",
+		Curso curso = (Curso) JOptionPane.showInputDialog(null, "Selecione o curso", "Curso",
 				JOptionPane.INFORMATION_MESSAGE, null, helper.listarCursos(escola.getId()).toArray(), null);
-		
+
 		if (curso != null) {
-			Aluno aluno = new Aluno();
-			aluno.setNome(JOptionPane.showInputDialog("Digite o nome do aluno"));
-			String alunoAdicionado = helper.adicionarAluno(aluno);
-			if (alunoAdicionado != null && !alunoAdicionado.isEmpty()) {
+			Aluno aluno = (Aluno) JOptionPane.showInputDialog(null, "Selecione um aluno", "Alunos",
+					JOptionPane.INFORMATION_MESSAGE, null, helper.listarAlunos().toArray(), null);
 
-				List<Aluno> alunos = helper.listarAlunos();
-
-				Aluno alunoSelecionado = alunos.get(alunos.size()-1);
+			if (aluno != null) {
 
 				ApplicationContext context = new ClassPathXmlApplicationContext("beanJdbc.xml");
 				CursoAlunoDao dao = (CursoAlunoDao) context.getBean("jdbcCursoDao");
 
-				JOptionPane.showMessageDialog(null, dao.adicionarCursoParaAluno(alunoSelecionado.getRm(), curso.getId()));
+				List<CursoAlunoViewModel> alunosIds = dao.buscarAlunosDeUmCurso(curso.getId());
+				boolean contem = false;
+				if (alunosIds != null  && !alunosIds.isEmpty()) {
+					List<Aluno> alunos = new ArrayList<>();
+					for(CursoAlunoViewModel cursoAluno : alunosIds)  {
+						if (cursoAluno.getAluno().equals(aluno.getRm())) {
+							contem = true;
+							JOptionPane.showMessageDialog(null, "A aluno " + aluno.getNome() + " já está cursando este curso");
+							break;
+						} 
+					}
+					
+					if (!contem) {
+						JOptionPane.showMessageDialog(null, dao.adicionarCursoParaAluno(aluno.getRm(), curso.getId()));
+					}
+
+
+				}	
 			}
 		} else {
 			JOptionPane.showMessageDialog(null, "Esta escola nào possui cursos, adicione um curso para poder adicionar um aluno");
-			adicionarAluno();
 		}
 
 
@@ -169,13 +243,13 @@ public class AppEscola {
 
 		ApplicationContext context = new ClassPathXmlApplicationContext("beanJdbc.xml");
 		CursoAlunoDao dao = (CursoAlunoDao) context.getBean("jdbcCursoDao");
-		
+
 		EntityManagerFactory emf = Persistence.createEntityManagerFactory("avaliacao");
 		EntityManager em = emf.createEntityManager();
 
 		EscolaHelper helper = new EscolaHelper(em);
 
-		
+
 		Escola escola = (Escola) JOptionPane.showInputDialog(null, "Selecione a escola", "Escolas",
 				JOptionPane.INFORMATION_MESSAGE, null, helper.listarEscolas().toArray(), null);
 
@@ -185,14 +259,14 @@ public class AppEscola {
 		List<CursoAlunoViewModel> alunosIds = null;
 		if (curso != null) {
 			alunosIds = dao.buscarAlunosDeUmCurso(curso.getId());
-			
+
 			if (alunosIds != null  && !alunosIds.isEmpty()) {
 				List<Aluno> alunos = new ArrayList<>();
 				for(CursoAlunoViewModel cursoAluno : alunosIds)  {
 					Aluno alunoCorrente = helper.buscarAlunoPorId(cursoAluno.getAluno());
 					alunos.add(alunoCorrente);
 				}
-				
+
 				Aluno aluno = (Aluno) JOptionPane.showInputDialog(null, "Selecione o aluno que deseja adicionar a nota", "Alunos",
 						JOptionPane.INFORMATION_MESSAGE, null, alunos.toArray(), null);
 
@@ -209,10 +283,10 @@ public class AppEscola {
 			JOptionPane.showMessageDialog(null, "Esta escola nào possui cursos, adicione um curso para poder adicionar um aluno");
 			adicionarNota();
 		}
-		
-		
-		
-		
+
+
+
+
 	}
 
 }
